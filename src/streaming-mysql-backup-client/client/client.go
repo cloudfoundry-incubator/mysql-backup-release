@@ -18,6 +18,7 @@ import (
 
 	"streaming-mysql-backup-client/cryptkeeper"
 	"streaming-mysql-backup-client/fileutils"
+	"streaming-mysql-backup-client/galera_agent"
 )
 
 type MultiError []error
@@ -46,18 +47,24 @@ type BackupPreparer interface {
 	Command(string) *exec.Cmd
 }
 
+//go:generate counterfeiter . GaleraAgentCallerInterface
+type GaleraAgentCallerInterface interface {
+	NodeWithHighestWsrepLocalIndex([]string) string
+}
+
 type Client struct {
-	config               config.Config
-	version              int64
-	tarClient            *tarpit.TarClient
-	backupPreparer       BackupPreparer
-	downloader           Downloader
-	logger               lager.Logger
-	downloadDirectory    string
-	prepareDirectory     string
-	encryptDirectory     string
-	encryptor            *cryptkeeper.CryptKeeper
-	metadataFields       map[string]string
+	config            config.Config
+	version           int64
+	tarClient         *tarpit.TarClient
+	backupPreparer    BackupPreparer
+	downloader        Downloader
+	galeraAgentCaller GaleraAgentCallerInterface
+	logger            lager.Logger
+	downloadDirectory string
+	prepareDirectory  string
+	encryptDirectory  string
+	encryptor         *cryptkeeper.CryptKeeper
+	metadataFields    map[string]string
 }
 
 func DefaultClient(config config.Config) *Client {
@@ -66,15 +73,17 @@ func DefaultClient(config config.Config) *Client {
 		tarpit.NewSystemTarClient(),
 		prepare.DefaultBackupPreparer(),
 		download.DefaultDownloadBackup(clock.DefaultClock(), config),
+		galera_agent.DefaultGaleraAgentCaller(),
 	)
 }
 
-func NewClient(config config.Config, tarClient *tarpit.TarClient, backupPreparer BackupPreparer, downloader Downloader) *Client {
+func NewClient(config config.Config, tarClient *tarpit.TarClient, backupPreparer BackupPreparer, downloader Downloader, galeraAgentCaller GaleraAgentCallerInterface) *Client {
 	client := &Client{
-		config:         config,
-		tarClient:      tarClient,
-		backupPreparer: backupPreparer,
-		downloader:     downloader,
+		config:            config,
+		tarClient:         tarClient,
+		backupPreparer:    backupPreparer,
+		downloader:        downloader,
+		galeraAgentCaller: galeraAgentCaller,
 	}
 	client.logger = config.Logger
 	client.encryptor = cryptkeeper.NewCryptKeeper(config.SymmetricKey)
@@ -111,6 +120,8 @@ func (this *Client) Execute() error {
 	var ips []string
 	if this.config.BackupAllMasters {
 		ips = this.config.Ips
+	} else if this.config.BackupFromInactiveNode {
+		ips = []string{}
 	} else {
 		ips = []string{this.config.Ips[len(this.config.Ips)-1]}
 	}

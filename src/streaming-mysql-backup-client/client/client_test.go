@@ -28,6 +28,7 @@ var _ = Describe("Streaming MySQL Backup Client", func() {
 		rootConfig         *config.Config
 		fakeDownloader     *clientfakes.FakeDownloader
 		fakeBackupPreparer *clientfakes.FakeBackupPreparer
+		fakeGaleraAgent    *clientfakes.FakeGaleraAgentCallerInterface
 		tarClient          *tarpit.TarClient
 		logger             *lagertest.TestLogger
 		backupFileGlob     = `mysql-backup-*.tar.gpg`
@@ -68,10 +69,12 @@ var _ = Describe("Streaming MySQL Backup Client", func() {
 
 			return streamedWriter.WriteStream(file)
 		}
+
+		fakeGaleraAgent = &clientfakes.FakeGaleraAgentCallerInterface{}
 	})
 
 	JustBeforeEach(func() {
-		backupClient = client.NewClient(*rootConfig, tarClient, fakeBackupPreparer, fakeDownloader)
+		backupClient = client.NewClient(*rootConfig, tarClient, fakeBackupPreparer, fakeDownloader, fakeGaleraAgent)
 	})
 
 	AfterEach(func() {
