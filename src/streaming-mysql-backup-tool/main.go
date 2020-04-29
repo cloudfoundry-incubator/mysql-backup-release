@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -37,7 +38,14 @@ func main() {
 		CollectorGenerator: func() api.Collector { return collector.NewCollector(collector.NewScriptExecutor(), logger) },
 	}
 
+	db, err := sql.Open("mysql", config.DB.DSN())
+	if err != nil {
+		logger.Fatal("Failed to initialize db: %s", err)
+	}
+
 	mux.Handle("/backup", backupHandler)
+
+	mux.Handle("/metadata", api.Metadata(db))
 
 	pidfile, err := os.Create(config.PidFile)
 	if err != nil {

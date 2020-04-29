@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"code.cloudfoundry.org/lager"
+
 	"streaming-mysql-backup-tool/commandexecutor"
 )
 

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -20,12 +21,23 @@ type Config struct {
 	PidFile     string      `yaml:"PidFile" validate:"nonzero"`
 	Credentials Credentials `yaml:"Credentials" validate:"nonzero"`
 	TLS         TLSConfig   `yaml:"TLS"`
+	DB          DB          `yaml:"DB"`
 	Logger      lager.Logger
 }
 
 type Credentials struct {
 	Username string `yaml:"Username" validate:"nonzero"`
 	Password string `yaml:"Password" validate:"nonzero"`
+}
+
+type DB struct {
+	Username string `yaml:"Username"`
+	Password string `yaml:"Password"`
+	Socket   string `yaml:"Socket"`
+}
+
+func (d DB) DSN() string {
+	return fmt.Sprintf("%s:%s@unix(%s)/", d.Username, d.Password, d.Socket)
 }
 
 type TLSConfig struct {
